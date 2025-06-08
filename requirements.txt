@@ -1,2 +1,2 @@
-Flask==2.0.1
-numpy==1.21.0
+#Añadir la depndencia de la libreria flet
+flet==0.28.3
