@@ -1,45 +1,41 @@
-# Mini Expert System for Appliance Repair
+# Mini sistema experto para reparación de electrodomésticos
 
-This project is a mini expert system designed to help users diagnose issues with various appliances such as toasters, blenders, and microwaves. By answering a series of questions, users can receive guidance on potential repairs needed for their appliances.
+Este proyecto es un minisistema experto diseñado para ayudar a los usuarios a diagnosticar problemas con microondas. Al responder una serie de preguntas, los usuarios pueden recibir orientación sobre posibles reparaciones para sus electrodomésticos.
 
-## Purpose
+## Proposito
 
-The purpose of this expert system is to provide users with a simple and interactive way to troubleshoot common appliance problems. It utilizes conditional logic to guide users through a set of questions, ultimately leading to a suggested diagnosis.
+El propósito de este sistema experto es proporcionar a los usuarios una forma sencilla e interactiva de solucionar problemas comunes de Micro-Ondas. Utiliza lógica condicional para guiar a los usuarios a través de un conjunto de preguntas que finalmente conducen a un diagnóstico sugerido.
 
-## How to Run the Expert System
+## Cómo ejecutar el sistema experto
 
-1. **Clone the Repository**: 
-   Clone this repository to your local machine using the following command:
-   ```
-   git clone <repository-url>
-   ```
+1. **Clonar el repositorio**:
 
-2. **Navigate to the Project Directory**:
-   Change your working directory to the project folder:
-   ```
-   cd mini-expert-system
-   ```
+Clone este repositorio en su equipo local con el siguiente comando:
+```
+git clone <repository-url>
+```
 
-3. **Install Dependencies**:
-   Make sure to install the required dependencies listed in `requirements.txt`. You can do this using pip:
-   ```
-   pip install -r requirements.txt
-   ```
+2. **Vaya al directorio del proyecto**:
 
-4. **Run the Expert System**:
-   Execute the expert system by running the following command:
-   ```
-   python src/expert_system.py
-   ```
+Cambie su directorio de trabajo a la carpeta del proyecto:
+```
+cd mini-expert-system
+```
 
-## Usage
+3. **Instalar dependencias**:
 
-Follow the prompts provided by the expert system. Answer the questions as accurately as possible to receive the best diagnosis for your appliance. The system will guide you through the troubleshooting process based on your responses.
+Asegúrese de instalar las dependencias necesarias que se enumeran en `requirements.txt`. Puede hacerlo con pip:
+```
+pip install -r requirements.txt
+```
 
-## Contributing
+4. **Ejecutar el sistema experto**:
 
-Contributions to improve the expert system are welcome! Feel free to submit issues or pull requests to enhance the functionality or add new features.
+Ejecute el sistema experto con el siguiente comando:
+```
+python src/expert_system.py
+```
 
-## License
+## Licencia
 
-This project is licensed under the MIT License. See the LICENSE file for more details.
+Este proyecto está licenciado bajo la licencia MIT. Consulte el archivo LICENSE para obtener más detalles.
