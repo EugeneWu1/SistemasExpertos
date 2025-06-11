@@ -75,7 +75,7 @@ def main(page: ft.Page):
     # Navbar lateral (como en la imagen)
     sidebar = ft.Container(
         width=200,
-        bgcolor="#F2F2F2",
+        bgcolor="#999696",
         padding=20,
         content=ft.Column([
             ft.Text("Workspace", size=18, weight=ft.FontWeight.BOLD),
@@ -114,7 +114,7 @@ def main(page: ft.Page):
                 sidebar,
                 main_area
             ], expand=True)
-        ], expand=True)
+        ], expand=True, spacing=0)
     )
 
 ft.app(target=main)
