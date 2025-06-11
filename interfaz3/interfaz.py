@@ -17,11 +17,6 @@ def main(page: ft.Page):
         "#AEC6CF", "#CFCFC4", "#836953", "#03C03C"
     ]
 
-    def open_modal(e):
-        page.dialog = dialog
-        dialog.open = True
-        page.update()
-
     def close_modal(e=None):
         dialog.open = False
         page.update()
@@ -93,7 +88,7 @@ def main(page: ft.Page):
         expand=True,
         padding=30,
         content=ft.Column([
-            ft.ElevatedButton("+ add a list", on_click=open_modal)
+            ft.ElevatedButton("+ add a list", on_click=lambda e: page.open(dialog),)
         ])
     )
 
