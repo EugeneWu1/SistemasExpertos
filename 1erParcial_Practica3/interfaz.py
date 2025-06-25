@@ -4,7 +4,7 @@ def main(page: ft.Page):
     page.title = "Explore App"
     page.theme_mode = ft.ThemeMode.LIGHT
     page.padding = 0
-    page.window.height = 650
+    page.window.height = 700
     page.window.width = 400
     page.window.resizable = False
     page.window.maximizable = False
