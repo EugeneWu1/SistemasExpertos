@@ -27,16 +27,112 @@ def main(page: ft.Page):
             "si": 5, "no": 6},
         3: {"pregunta": "¿La obesidad está presente?",
             "respuesta": "Sí, el sobrepeso eleva significativamente el riesgo.",
-            "si": None, "no": None},
+            "si": 9, "no": 10},
         4: {"pregunta": "¿El paciente consume mucha sal?",
             "respuesta": "El consumo excesivo de sal aumenta la presión arterial.",
-            "si": None, "no": None},
+            "si": 11, "no": 22},
         5: {"pregunta": "¿No presenta ningún síntoma?",
             "respuesta": "La hipertensión puede ser silenciosa en fases tempranas.",
-            "si": None, "no": None},
+            "si": 15, "no": 28},
         6: {"pregunta": "¿Síntomas severos como confusión o convulsiones?",
             "respuesta": "Síntomas severos pueden indicar una crisis hipertensiva.",
-            "si": None, "no": None},
+            "si": 30, "no": 23},
+        7: {"pregunta": "¿Tiene antecedentes familiares de hipertensión?",
+        "respuesta": "La herencia genética puede predisponer a la hipertensión.",
+        "si": 15, "no": 16},
+
+    8: {"pregunta": "¿Realiza actividad física al menos 3 veces por semana?",
+        "respuesta": "La actividad física ayuda a controlar la presión arterial.",
+        "si": 17, "no": 18},
+
+    9: {"pregunta": "¿Consume alcohol de forma regular?",
+        "respuesta": "El consumo excesivo de alcohol eleva la presión arterial.",
+        "si": 19, "no": 20},
+
+    10: {"pregunta": "¿Tiene una dieta equilibrada?",
+         "respuesta": "Una dieta balanceada ayuda a prevenir hipertensión.",
+         "si": 21, "no": 22},
+
+    11: {"pregunta": "¿Ha tenido mediciones de presión normales en los últimos 6 meses?",
+         "respuesta": "Un historial estable es buena señal.",
+         "si": 23, "no": 24},
+
+    12: {"pregunta": "¿Presenta mareos o fatiga frecuente?",
+         "respuesta": "Puede indicar problemas circulatorios o cardíacos.",
+         "si": 25, "no": 26},
+
+    13: {"pregunta": "¿Está tomando medicación antihipertensiva actualmente?",
+         "respuesta": "Seguir el tratamiento médico es crucial.",
+         "si": 27, "no": 28},
+
+    14: {"pregunta": "¿Se ha realizado un chequeo médico en el último año?",
+         "respuesta": "Los chequeos anuales ayudan a la prevención.",
+         "si": 29, "no": 30},
+
+    # --- HOJAS DEL ÁRBOL ---
+    15: {"pregunta": "Fin del diagnóstico",
+         "respuesta": "Requiere seguimiento médico especializado.",
+         "si": None, "no": None},
+
+    16: {"pregunta": "Fin del diagnóstico",
+         "respuesta": "Mantener hábitos saludables y control periódico.",
+         "si": None, "no": None},
+
+    17: {"pregunta": "Fin del diagnóstico",
+         "respuesta": "Muy buena práctica. Mantenerla en el tiempo.",
+         "si": None, "no": None},
+
+    18: {"pregunta": "Fin del diagnóstico",
+         "respuesta": "Aumentar actividad física para reducir riesgos.",
+         "si": None, "no": None},
+
+    19: {"pregunta": "Fin del diagnóstico",
+         "respuesta": "Reducir el consumo de alcohol urgentemente.",
+         "si": None, "no": None},
+
+    20: {"pregunta": "Fin del diagnóstico",
+         "respuesta": "Mantener control y dieta saludable.",
+         "si": None, "no": None},
+
+    21: {"pregunta": "Fin del diagnóstico",
+         "respuesta": "Excelente, continúe con su dieta balanceada.",
+         "si": None, "no": None},
+
+    22: {"pregunta": "Fin del diagnóstico",
+         "respuesta": "Mejorar la dieta y reducir sal y grasas.",
+         "si": None, "no": None},
+
+    23: {"pregunta": "Fin del diagnóstico",
+         "respuesta": "Mantener monitoreo regular.",
+         "si": None, "no": None},
+
+    24: {"pregunta": "Fin del diagnóstico",
+         "respuesta": "Realizar seguimiento más frecuente.",
+         "si": None, "no": None},
+
+    25: {"pregunta": "Fin del diagnóstico",
+         "respuesta": "Puede necesitar evaluación cardiológica.",
+         "si": None, "no": None},
+
+    26: {"pregunta": "Fin del diagnóstico",
+         "respuesta": "Mantener observación y control.",
+         "si": None, "no": None},
+
+    27: {"pregunta": "Fin del diagnóstico",
+         "respuesta": "Seguir medicación y controles médicos.",
+         "si": None, "no": None},
+
+    28: {"pregunta": "Fin del diagnóstico",
+         "respuesta": "Consultar con médico para iniciar tratamiento.",
+         "si": None, "no": None},
+
+    29: {"pregunta": "Fin del diagnóstico",
+         "respuesta": "Buen control preventivo.",
+         "si": None, "no": None},
+
+    30: {"pregunta": "Fin del diagnóstico",
+         "respuesta": "Realizar un chequeo lo antes posible.",
+         "si": None, "no": None},
     }
 
     estado = {"nodo": 0, "historial": [], "paciente_actual": None, "respuestas": []}
@@ -196,7 +292,6 @@ Este es un sistema de apoyo, no sustituye la consulta médica."""
     def update_arbol():
         arbol_vista.controls.clear()
 
-        # Nivel 0
         arbol_vista.controls.append(
             ft.Row([
                 ft.Container(nodo_arbol(0, arbol[0]["pregunta"]), padding=10),
@@ -207,21 +302,56 @@ Este es un sistema de apoyo, no sustituye la consulta médica."""
         arbol_vista.controls.append(
             ft.Row([
                 ft.Container(nodo_arbol(1, arbol[1]["pregunta"]), padding=10),
-                ft.Container(width=100),
+                ft.Container(width=200),  # espacio entre los nodos
                 ft.Container(nodo_arbol(2, arbol[2]["pregunta"]), padding=10),
             ], alignment=ft.MainAxisAlignment.CENTER)
         )
 
-        # Nivel 2 (nodos 3, 4, 5, 6)
+        # Nivel 2 (nodos 3,4,5,6,7)
         arbol_vista.controls.append(
             ft.Row([
                 ft.Container(nodo_arbol(3, arbol[3]["pregunta"]), padding=10),
                 ft.Container(nodo_arbol(4, arbol[4]["pregunta"]), padding=10),
                 ft.Container(nodo_arbol(5, arbol[5]["pregunta"]), padding=10),
                 ft.Container(nodo_arbol(6, arbol[6]["pregunta"]), padding=10),
+                ft.Container(nodo_arbol(7, arbol[7]["pregunta"]), padding=10),
             ], alignment=ft.MainAxisAlignment.CENTER)
         )
 
+        # Nivel 3 (nodos 8 a 14)
+        arbol_vista.controls.append(
+            ft.Row([
+                ft.Container(nodo_arbol(8, arbol[8]["pregunta"]), padding=10),
+                ft.Container(nodo_arbol(9, arbol[9]["pregunta"]), padding=10),
+                ft.Container(nodo_arbol(10, arbol[10]["pregunta"]), padding=10),
+                ft.Container(nodo_arbol(11, arbol[11]["pregunta"]), padding=10),
+                ft.Container(nodo_arbol(12, arbol[12]["pregunta"]), padding=10),
+                ft.Container(nodo_arbol(13, arbol[13]["pregunta"]), padding=10),
+                ft.Container(nodo_arbol(14, arbol[14]["pregunta"]), padding=10),
+            ], alignment=ft.MainAxisAlignment.CENTER)
+        )
+
+        # Nivel 4 (nodos 15 a 30) — hojas (finales)
+        arbol_vista.controls.append(
+            ft.Row([
+                ft.Container(nodo_arbol(15, arbol[15]["pregunta"]), padding=10),
+                ft.Container(nodo_arbol(16, arbol[16]["pregunta"]), padding=10),
+                ft.Container(nodo_arbol(17, arbol[17]["pregunta"]), padding=10),
+                ft.Container(nodo_arbol(18, arbol[18]["pregunta"]), padding=10),
+                ft.Container(nodo_arbol(19, arbol[19]["pregunta"]), padding=10),
+                ft.Container(nodo_arbol(20, arbol[20]["pregunta"]), padding=10),
+                ft.Container(nodo_arbol(21, arbol[21]["pregunta"]), padding=10),
+                ft.Container(nodo_arbol(22, arbol[22]["pregunta"]), padding=10),
+                ft.Container(nodo_arbol(23, arbol[23]["pregunta"]), padding=10),
+                ft.Container(nodo_arbol(24, arbol[24]["pregunta"]), padding=10),
+                ft.Container(nodo_arbol(25, arbol[25]["pregunta"]), padding=10),
+                ft.Container(nodo_arbol(26, arbol[26]["pregunta"]), padding=10),
+                ft.Container(nodo_arbol(27, arbol[27]["pregunta"]), padding=10),
+                ft.Container(nodo_arbol(28, arbol[28]["pregunta"]), padding=10),
+                ft.Container(nodo_arbol(29, arbol[29]["pregunta"]), padding=10),
+                ft.Container(nodo_arbol(30, arbol[30]["pregunta"]), padding=10),
+            ], alignment=ft.MainAxisAlignment.CENTER, scroll="auto")
+        )   
         page.update()
 
     question = ft.Text(arbol[estado["nodo"]]["pregunta"], size=20, weight="bold", text_align=ft.TextAlign.CENTER)
