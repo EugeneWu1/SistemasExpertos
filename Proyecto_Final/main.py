@@ -3,6 +3,11 @@ import json
 import requests
 import uuid
 from datetime import datetime
+import google.generativeai as genai
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def main(page: ft.Page):
     page.title = "Sistema Experto: Hipertensión"
@@ -14,6 +19,9 @@ def main(page: ft.Page):
     
     # Configuración del bot de Telegram
     TELEGRAM_BOT_URL = "http://localhost:1880/telegram"  # URL de tu endpoint de Node-RED
+
+
+    API_KEY = os.getenv('GEMINI_API_KEY') 
 
     arbol = {
         0: {"pregunta": "¿El paciente tiene presión arterial elevada (≥140/90 mmHg)?",
@@ -139,7 +147,113 @@ def main(page: ft.Page):
     diagnostico_text = ft.Text("", size=22, color="red", weight="bold")
     respuesta_texto = ft.Text("", size=18, color="black")
 
-    # --- NUEVOS COMPONENTES PARA FORMULARIO DE PACIENTE ---
+    # --- COMPONENTES DEL CHATBOT IA ---
+    ia_response_text = ft.Column(
+        controls=[
+            ft.Text("🤖 Asistente IA - Hipertensión", size=18, weight="bold"),
+            ft.Text("Hola! Puedes hacerme preguntas sobre hipertensión, síntomas, tratamientos, etc.", 
+                    size=14, color="blue")
+        ],
+        height=300,
+        scroll=ft.ScrollMode.AUTO,
+        spacing=5
+    )
+    
+    prompt_input = ft.TextField(
+        label="Escribe tu pregunta sobre hipertensión...",
+        multiline=True,
+        max_lines=3,
+        expand=True
+    )
+
+    def send_prompt_to_ai():
+        prompt = prompt_input.value.strip()
+        if not prompt:
+            return
+        
+        # Agregar pregunta del usuario al chat
+        ia_response_text.controls.append(
+            ft.Container(
+                content=ft.Text(f"🤔 {prompt}", selectable=True),
+                bgcolor=ft.Colors.BLUE_100,
+                padding=10,
+                border_radius=5,
+                margin=ft.margin.only(bottom=5)
+            )
+        )
+        
+        prompt_input.value = ""
+        page.update()
+        
+        try:
+            if not API_KEY:
+                ia_response_text.controls.append(
+                    ft.Container(
+                        content=ft.Text("❌ Error: API Key no configurada. Agrega tu API key de Gemini.", 
+                                       selectable=True, color="red"),
+                        bgcolor=ft.Colors.RED_100,
+                        padding=10,
+                        border_radius=5,
+                        margin=ft.margin.only(bottom=5)
+                    )
+                )
+                page.update()
+                return
+            
+            genai.configure(api_key=API_KEY)
+            model = genai.GenerativeModel(model_name="gemini-1.5-flash")
+            
+            # Contexto médico especializado
+            context = """Eres un asistente médico especializado en hipertensión arterial. 
+            Proporciona información médica precisa pero siempre recuerda que no sustituyes 
+            la consulta médica profesional. Responde de forma clara y comprensible."""
+            
+            full_prompt = f"{context}\n\nPregunta del paciente: {prompt}"
+            
+            # Agregar contexto del paciente actual si existe
+            if estado["paciente_actual"]:
+                p = estado["paciente_actual"]
+                patient_context = f"\nDatos del paciente actual: {p['nombre']}, {p['edad']} años, IMC: {p['imc']}"
+                if p.get('respuestas'):
+                    patient_context += f", Respuestas de evaluación: {', '.join(p['respuestas'])}"
+                full_prompt += patient_context
+            
+            response = model.generate_content(full_prompt)
+            
+            # Agregar respuesta de la IA al chat
+            ai_response = response.text + "\n\n⚠️ Esta información es orientativa. Consulta siempre con un médico profesional."
+            
+            ia_response_text.controls.append(
+                ft.Container(
+                    content=ft.Text(f"🤖 {ai_response}", selectable=True),
+                    bgcolor=ft.Colors.GREEN_100,
+                    padding=10,
+                    border_radius=5,
+                    margin=ft.margin.only(bottom=5)
+                )
+            )
+            
+        except Exception as e:
+            ia_response_text.controls.append(
+                ft.Container(
+                    content=ft.Text(f"❌ Error: {str(e)}", selectable=True, color="red"),
+                    bgcolor=ft.Colors.RED_100,
+                    padding=10,
+                    border_radius=5,
+                    margin=ft.margin.only(bottom=5)
+                )
+            )
+        
+        page.update()
+
+    def limpiar_chat(_):
+        ia_response_text.controls = [
+            ft.Text("🤖 Asistente IA - Hipertensión", size=18, weight="bold"),
+            ft.Text("Chat limpiado. ¿En qué puedo ayudarte?", size=14, color="blue")
+        ]
+        page.update()
+
+    # --- COMPONENTES PARA FORMULARIO DE PACIENTE ---
     nombre_field = ft.TextField(label="Nombre Completo", width=300)
     edad_field = ft.TextField(label="Edad", width=150, keyboard_type=ft.KeyboardType.NUMBER)
     sexo_dropdown = ft.Dropdown(
@@ -198,6 +312,19 @@ def main(page: ft.Page):
         sexo_dropdown.value = None
         
         mostrar_notificacion(f"Paciente registrado con ID: {paciente_id}")
+        
+        # Notificar en el chat sobre el nuevo paciente
+        ia_response_text.controls.append(
+            ft.Container(
+                content=ft.Text(f"📋 Nuevo paciente registrado: {paciente['nombre']}, {paciente['edad']} años, IMC: {paciente['imc']}", 
+                               selectable=True, color="purple"),
+                bgcolor=ft.Colors.PURPLE_100,
+                padding=10,
+                border_radius=5,
+                margin=ft.margin.only(bottom=5)
+            )
+        )
+        
         page.update()
 
     def enviar_telegram(paciente, diagnostico_completo):
@@ -253,6 +380,18 @@ Este es un sistema de apoyo, no sustituye la consulta médica."""
             
             diagnostico_text.value = "Evaluación finalizada. Consulte a un profesional para diagnóstico completo."
             botones.controls.clear()
+            
+            # Notificar en el chat sobre evaluación completada
+            ia_response_text.controls.append(
+                ft.Container(
+                    content=ft.Text(f"✅ Evaluación de {estado['paciente_actual']['nombre']} completada. ¿Necesitas más información sobre el caso?", 
+                                   selectable=True, color="green"),
+                    bgcolor=ft.Colors.GREEN_50,
+                    padding=10,
+                    border_radius=5,
+                    margin=ft.margin.only(bottom=5)
+                )
+            )
             
             # Enviar por Telegram
             enviar_telegram(estado["paciente_actual"], diagnostico_text.value)
@@ -365,43 +504,48 @@ Este es un sistema de apoyo, no sustituye la consulta médica."""
     update_arbol()
 
     # --- FORMULARIO DE PACIENTE AGREGADO ---
-    formulario_paciente = ft.Container(
+
+
+    # --- SECCIÓN DEL CHATBOT IA ---
+    chatbot_container = ft.Container(
         content=ft.Column([
-            ft.Text("📋 Datos del Paciente", size=20, weight="bold"),
-            ft.Row([nombre_field, edad_field, sexo_dropdown], alignment=ft.MainAxisAlignment.CENTER),
-            ft.Row([telefono_field, email_field], alignment=ft.MainAxisAlignment.CENTER),
-            ft.Row([peso_field, altura_field], alignment=ft.MainAxisAlignment.CENTER),
-            ft.ElevatedButton("Registrar Paciente", on_click=crear_paciente),
+            ft.Container(
+                content=ia_response_text,
+                bgcolor=ft.Colors.GREY_100,
+                border_radius=10,
+                padding=10,
+            ),
+            ft.Row([
+                prompt_input,
+                ft.ElevatedButton("Enviar", on_click=lambda _: send_prompt_to_ai()),
+                ft.ElevatedButton("Limpiar", on_click=limpiar_chat, color=ft.Colors.RED_400)
+            ], spacing=10),
+            ft.Text("💡 Pregunta sobre síntomas, tratamientos, dieta, ejercicios, etc.", 
+                   size=12, italic=True, color=ft.Colors.GREY_600),
             ft.Divider(),
         ], spacing=10),
         padding=10,
-        bgcolor=ft.Colors.BLUE_GREY_50,
+        bgcolor=ft.Colors.LIGHT_GREEN_50,
         border_radius=10,
     )
 
     # --- INFORMACIÓN DEL PACIENTE ACTUAL ---
-    def get_info_paciente():
-        if estado["paciente_actual"]:
-            p = estado["paciente_actual"]
-            return ft.Text(f"👤 Paciente: {p['nombre']} | ID: {p['id']} | IMC: {p['imc']}", 
-                          size=16, weight="bold", color="blue")
-        return ft.Text("⚠️ No hay paciente registrado", size=16, color="red")
 
-    info_paciente = ft.Container(content=get_info_paciente(), padding=10)
+
+    
 
     page.add(
         ft.Container(
             content=ft.Column(
                 [
-                    ft.Text("Sistema Experto: Hipertensión", size=24, weight="bold"),
-                    formulario_paciente,  # NUEVO: Formulario agregado
-                    info_paciente,        # NUEVO: Info del paciente actual
-                    arbol_vista,
+                    ft.Text("Sistema Experto: Hipertensión con IA", size=24, weight="bold"),       # Info del paciente actual
+                    chatbot_container,    # NUEVO: Sección del chatbot IA
+                    arbol_vista,          # Árbol de decisión
                     ft.Divider(),
-                    question,
-                    botones,
-                    respuesta_texto,
-                    diagnostico_text,
+                    question,             # Pregunta actual
+                    botones,              # Botones Sí/No
+                    respuesta_texto,      # Respuesta del sistema experto
+                    diagnostico_text,     # Diagnóstico final
                     ft.ElevatedButton("Reiniciar", on_click=reiniciar)
                 ],
                 alignment=ft.MainAxisAlignment.CENTER,
@@ -415,16 +559,16 @@ Este es un sistema de apoyo, no sustituye la consulta médica."""
     )
 
     # Actualizar info del paciente periódicamente
-    def actualizar_info(_):
-        info_paciente.content = get_info_paciente()
-        page.update()
+    #def actualizar_info(_):
+        #info_paciente.content = get_info_paciente()
+        #page.update()
     
     # Timer para actualizar la info del paciente
     import threading
     def timer_update():
         while True:
             try:
-                actualizar_info(None)
+                #actualizar_info(None)
                 threading.Event().wait(2)  # Actualizar cada 2 segundos
             except:
                 break
