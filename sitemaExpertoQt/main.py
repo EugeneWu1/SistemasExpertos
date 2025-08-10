@@ -522,7 +522,7 @@ class FactoryIOController(QMainWindow):
         self.ia_response_text.append(f"🤔 {prompt}")
         
         try:
-            API_KEY = "AIzaSyB4hptdAfmMwWHRgm6bNLTpu5uKAFyecV8"
+            API_KEY = ""
             genai.configure(api_key=API_KEY)
             model = genai.GenerativeModel(model_name="gemini-1.5-flash")
             response = model.generate_content(prompt)
