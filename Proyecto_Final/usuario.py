@@ -3,7 +3,7 @@ import mysql.connector
 from mysql.connector import Error
 import re
 from datetime import datetime
-#from main import main as main_estudio
+from main import main as main_estudio
 import os
 from dotenv import load_dotenv
 
