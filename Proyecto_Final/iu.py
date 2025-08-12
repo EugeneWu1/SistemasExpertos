@@ -1287,26 +1287,12 @@ Puedo ayudarte con información sobre:
             ft.Container(
                 content=ft.Row([
                     ft.ElevatedButton(
-                        "Enviar Reporte",
-                        icon=ft.Icons.SEND,
-                        on_click=lambda _: self.send_report(patient.get('id')),
-                        bgcolor=ft.Colors.GREEN,
-                        color=ft.Colors.WHITE
-                    ),
-                    ft.ElevatedButton(
                         "Generar PDF",
                         icon=ft.Icons.PICTURE_AS_PDF,
                         on_click=lambda _: self.generate_report(patient.get('id')),
                         bgcolor=ft.Colors.ORANGE,
                         color=ft.Colors.WHITE
                     ),
-                    ft.ElevatedButton(
-                        "Eliminar Paciente",
-                        icon=ft.Icons.DELETE,
-                        on_click=lambda _: self.confirm_delete_patient(patient.get('id')),
-                        bgcolor=ft.Colors.RED,
-                        color=ft.Colors.WHITE
-                    )
                 ], alignment=ft.MainAxisAlignment.CENTER, spacing=10),
                 padding=15,
                 bgcolor=ft.Colors.GREY_100,
