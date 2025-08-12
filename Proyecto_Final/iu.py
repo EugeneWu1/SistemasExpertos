@@ -5,6 +5,22 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime
 import google.generativeai as genai
+import time
+try:
+    # Intentar importar reportlab como alternativa más simple
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import letter, A4
+    from reportlab.lib.styles import getSampleStyleSheet
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+    from reportlab.lib.units import inch
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
+try:
+    import weasyprint
+    WEASYPRINT_AVAILABLE = True
+except (ImportError, OSError):
+    WEASYPRINT_AVAILABLE = False
 
 # Cargar variables de entorno
 load_dotenv()
@@ -697,11 +713,14 @@ class HypertensionApp:
                 
                 # Mostrar mensaje de éxito
                 self.success_message.visible = True
+                self.page.update()
+                time.sleep(3) 
+
                 self.diagnostico_btn.visible = True
                 
                 # Limpiar formulario
                 self.clear_form()
-                
+                self.success_message.visible = False
                 self.page.update()
             else:
                 self.show_error("Error al guardar el paciente. Intente nuevamente.")
@@ -1263,12 +1282,12 @@ Puedo ayudarte con información sobre:
                                 ft.Divider(),
                                 ft.Container(
                                     content=diagnostico_info,
-                                    height=250,
+                                    expand=True,
                                     bgcolor=ft.Colors.GREY_50,
                                     padding=10,
                                     border_radius=8,
                                 )
-                            ], spacing=10, scroll=ft.ScrollMode.AUTO),
+                            ], spacing=10, scroll=ft.ScrollMode.ADAPTIVE),
                             padding=20
                         )
                     ),
@@ -1365,10 +1384,260 @@ Puedo ayudarte con información sobre:
             self.show_error(f"Error de conexión: {str(ex)}")
     
     def generate_report(self, patient_id):
-        """Generar reporte PDF del paciente"""
-        self.show_success(f"Generando reporte PDF para paciente #{patient_id}...")
-        # Aquí implementarías la generación real del PDF
-    
+        try:
+            # Primero obtener los datos completos del paciente
+            response = requests.get(
+                f"{self.node_red_url}/get-patient/{patient_id}",
+                timeout=10
+            )
+            
+            if response.status_code != 200:
+                self.show_error("Error al obtener datos del paciente.")
+                return
+                
+            patient = response.json()
+            
+            # Mostrar mensaje de progreso
+            self.show_success(f"📄 Generando reporte PDF para {patient.get('nombre_completo', 'paciente')}...")
+            
+            # Enviar solicitud a Node-RED para generar el PDF
+            response = requests.post(
+                f"{self.node_red_url}/export-diagnosis-pdf",
+                json={"patient_id": patient_id},
+                headers={'Content-Type': 'application/json'},
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                
+                if result.get('success'):
+                    # El HTML está disponible, ahora convertir a PDF
+                    self.convert_html_to_pdf(result, patient)
+                else:
+                    self.show_error(f"Error: {result.get('message', 'Error desconocido')}")
+            else:
+                self.show_error("Error al generar el reporte en el servidor.")
+                
+        except requests.exceptions.RequestException as ex:
+            self.show_error(f"Error de conexión al generar reporte: {str(ex)}")
+        except Exception as ex:
+            self.show_error(f"Error inesperado: {str(ex)}")
+
+    def convert_html_to_pdf(self, html_data, patient):
+        """Convertir HTML a PDF y manejarlo según las capacidades disponibles"""
+        try:
+            html_content = html_data.get('html', '')
+            filename = html_data.get('filename', f"reporte_{patient.get('id', 'paciente')}.pdf")
+            
+            # Opción 1: Usar reportlab (más compatible con Windows)
+            if REPORTLAB_AVAILABLE:
+                try:
+                    self.generate_pdf_with_reportlab(html_data, patient, filename)
+                    return
+                except Exception as e:
+                    self.show_error(f"Error al generar PDF con reportlab: {str(e)}")
+            
+            # Opción 2: Usar weasyprint si está disponible
+            if WEASYPRINT_AVAILABLE:
+                try:
+                    from io import BytesIO
+                    
+                    # Generar PDF con weasyprint
+                    pdf_bytes = weasyprint.HTML(string=html_content).write_pdf()
+                    
+                    # Guardar archivo
+                    self.save_pdf_file(pdf_bytes, filename, patient)
+                    return
+                    
+                except Exception as e:
+                    self.show_error(f"Error al generar PDF con weasyprint: {str(e)}")
+            
+            # Opción 3: Fallback - guardar como HTML
+            self.show_error("No hay librerías PDF disponibles. Guardando como HTML...")
+            self.save_as_html_report(html_content, filename.replace('.pdf', '.html'), patient)
+                
+        except Exception as e:
+            self.show_error(f"Error al procesar el reporte: {str(e)}")
+
+    def generate_pdf_with_reportlab(self, html_data, patient, filename):
+        """Generar PDF usando reportlab (más simple, compatible con Windows)"""
+        try:
+            from io import BytesIO
+            import re
+            
+            # Crear directorio de reportes si no existe
+            reports_dir = "reportes_medicos"
+            if not os.path.exists(reports_dir):
+                os.makedirs(reports_dir)
+            
+            file_path = os.path.join(reports_dir, filename)
+            
+            # Crear documento PDF
+            doc = SimpleDocTemplate(file_path, pagesize=A4)
+            styles = getSampleStyleSheet()
+            story = []
+            
+            # Título
+            title_style = styles['Title']
+            story.append(Paragraph("Reporte Médico - Sistema Experto Hipertensión", title_style))
+            story.append(Spacer(1, 20))
+            
+            # Información del paciente
+            patient_info = f"""
+            <b>Información del Paciente:</b><br/>
+            Nombre: {patient.get('nombre_completo', 'N/A')}<br/>
+            Edad: {patient.get('edad', 'N/A')} años<br/>
+            Género: {self.get_gender_display(patient.get('genero', 'N/A'))}<br/>
+            Email: {patient.get('email', 'N/A')}<br/>
+            Teléfono: {patient.get('numero_telefono', 'N/A')}<br/>
+            Peso: {patient.get('peso', 'N/A')} kg<br/>
+            Altura: {patient.get('altura', 'N/A')} cm<br/>
+            """
+            
+            story.append(Paragraph(patient_info, styles['Normal']))
+            story.append(Spacer(1, 20))
+            
+            # Evaluación de riesgo (simulada)
+            peso = float(patient.get('peso', 0))
+            altura = float(patient.get('altura', 1)) / 100
+            imc = peso / (altura * altura) if altura > 0 else 0
+            imc_categoria = self.get_imc_category(imc)
+            
+            risk_info = f"""
+            <b>Evaluación de Riesgo Cardiovascular:</b><br/>
+            IMC: {imc:.1f} kg/m² ({imc_categoria})<br/>
+            """
+            
+            story.append(Paragraph(risk_info, styles['Normal']))
+            story.append(Spacer(1, 20))
+            
+            # Diagnóstico si existe
+            diagnostico = patient.get('diagnostico')
+            if diagnostico:
+                story.append(Paragraph("<b>Diagnóstico:</b>", styles['Heading2']))
+                if isinstance(diagnostico, str):
+                    # Limpiar HTML básico para reportlab
+                    clean_text = re.sub('<[^<]+?>', '', diagnostico)
+                    story.append(Paragraph(clean_text, styles['Normal']))
+                elif isinstance(diagnostico, dict):
+                    diag_text = str(diagnostico)
+                    clean_text = re.sub('<[^<]+?>', '', diag_text)
+                    story.append(Paragraph(clean_text, styles['Normal']))
+            
+            story.append(Spacer(1, 20))
+            
+            # Fecha de generación
+            fecha_actual = datetime.now().strftime('%d/%m/%Y %H:%M')
+            story.append(Paragraph(f"<b>Fecha de generación:</b> {fecha_actual}", styles['Normal']))
+            
+            # Generar PDF
+            doc.build(story)
+            
+            self.show_success(f"✅ Reporte PDF generado: {file_path}")
+            print(f"PDF con reportlab guardado en: {file_path}")
+            
+            # Mostrar diálogo
+            self.show_pdf_generated_dialog(file_path, patient)
+            
+        except Exception as e:
+            self.show_error(f"Error al generar PDF con reportlab: {str(e)}")
+            raise e
+
+    def save_pdf_file(self, pdf_bytes, filename, patient):
+        """Guardar archivo PDF"""
+        try:
+            # Por ahora, guardamos en el directorio actual
+            import os
+            
+            # Crear directorio de reportes si no existe
+            reports_dir = "reportes_medicos"
+            if not os.path.exists(reports_dir):
+                os.makedirs(reports_dir)
+            
+            # Guardar archivo
+            file_path = os.path.join(reports_dir, filename)
+            with open(file_path, 'wb') as f:
+                f.write(pdf_bytes)
+            
+            self.show_success(f"✅ Reporte PDF generado: {file_path}")
+            print(f"PDF guardado en: {file_path}")
+            
+            # Mostrar diálogo con información del archivo generado
+            self.show_pdf_generated_dialog(file_path, patient)
+            
+        except Exception as e:
+            self.show_error(f"Error al guardar PDF: {str(e)}")
+
+    def save_as_html_report(self, html_content, filename, patient):
+        """Guardar reporte como archivo HTML"""
+        try:
+            # Crear directorio de reportes si no existe
+            reports_dir = "reportes_medicos"
+            if not os.path.exists(reports_dir):
+                os.makedirs(reports_dir)
+            
+            # Guardar archivo HTML
+            file_path = os.path.join(reports_dir, filename)
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(html_content)
+            
+            self.show_success(f"✅ Reporte HTML generado: {file_path}")
+            print(f"HTML guardado en: {file_path}")
+            
+            # Mostrar diálogo con información del archivo generado
+            self.show_html_generated_dialog(file_path, patient)
+            
+        except Exception as e:
+            self.show_error(f"Error al guardar HTML: {str(e)}")
+
+    def show_pdf_generated_dialog(self, file_path, patient):
+        """Mostrar diálogo cuando se genera el PDF"""
+        def close_dialog(e):
+            dlg.open = False
+            self.page.update()
+        
+        dlg = ft.AlertDialog(
+            title=ft.Text("📄 PDF Generado Exitosamente"),
+            content=ft.Column([
+                ft.Text(f"Reporte generado para: {patient.get('nombre_completo', 'Paciente')}"),
+                ft.Text(f"Archivo guardado en: {file_path}"),
+                ft.Text("El archivo se ha guardado en la carpeta 'reportes_medicos'")
+            ], spacing=10, tight=True),
+            actions=[
+                ft.TextButton("Cerrar", on_click=close_dialog),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        
+        self.page.dialog = dlg
+        dlg.open = True
+        self.page.update()
+
+    def show_html_generated_dialog(self, file_path, patient):
+        """Mostrar diálogo cuando se genera el HTML"""
+        def close_dialog(e):
+            dlg.open = False
+            self.page.update()
+        
+        dlg = ft.AlertDialog(
+            title=ft.Text("📄 Reporte HTML Generado"),
+            content=ft.Column([
+                ft.Text(f"Reporte generado para: {patient.get('nombre_completo', 'Paciente')}"),
+                ft.Text(f"Archivo guardado en: {file_path}"),
+                ft.Text("Nota: Se guardó como HTML porque PDF no está disponible"),
+                ft.Text("Puede abrir el archivo en cualquier navegador web")
+            ], spacing=10, tight=True),
+            actions=[
+                ft.TextButton("Cerrar", on_click=close_dialog),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        
+        self.page.dialog = dlg
+        dlg.open = True
+        self.page.update()
+
     def create_info_row(self, label, value):
         """Crear fila de información con etiqueta y valor"""
         return ft.Row([
@@ -1468,18 +1737,15 @@ Puedo ayudarte con información sobre:
             if not messages:
                 return ft.Text("No hay mensajes en este diagnóstico")
             
-            # Mostrar solo los primeros mensajes como resumen
-            summary_messages = messages[:3] if len(messages) > 3 else messages
-            more_text = f"\n... y {len(messages) - 3} mensajes más" if len(messages) > 3 else ""
-            
+            # Mostrar todos los mensajes completos
             content = "\n".join([msg.replace("👤 Usuario: ", "• ").replace("🤖 IA Médica: ", "→ ") 
-                               for msg in summary_messages])
+                               for msg in messages])
             
             return ft.Container(
                 content=ft.Column([
                     ft.Text(f"📅 {timestamp}", size=12, color=ft.Colors.GREY_600),
                     ft.Text(f"🆔 Sesión: {session_id}", size=12, color=ft.Colors.GREY_600),
-                    ft.Text(content + more_text, size=13, selectable=True),
+                    ft.Text(content, size=13, selectable=True),
                 ], spacing=5),
                 bgcolor=ft.Colors.WHITE,
                 padding=10,
@@ -1583,6 +1849,7 @@ Puedo ayudarte con información sobre:
     
     def switch_to_tab(self, index):
         self.tabs.selected_index = index
+        self.diagnostico_btn.visible = False
         self.page.update()
     
     def tab_changed(self, e):
@@ -1612,10 +1879,11 @@ Puedo ayudarte con información sobre:
         print(f"Error: {message}")
     
     def show_success(self, message):
+        print(f"Éxito: {message}")
         self.status_message.value = f"✅ {message}"
         self.status_message.color = ft.Colors.GREEN
         self.page.update()
-        print(f"Éxito: {message}")
+        
 
 def main(page: ft.Page):
     app = HypertensionApp()
