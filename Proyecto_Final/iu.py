@@ -32,6 +32,7 @@ class HypertensionApp:
         self.gemini_api_key = os.getenv('GEMINI_API_KEY')
         self.current_decision_node = 0
         self.patient_responses = {}
+        self.final_diagnosis = None  # Variable para almacenar el diagnóstico final
         
         # Configurar Gemini AI
         if self.gemini_api_key:
@@ -748,6 +749,7 @@ class HypertensionApp:
     
     def start_free_chat(self):
         """Iniciar modo de chat libre con IA"""
+        self.final_diagnosis = None  # Reiniciar diagnóstico final
         self.chat_messages.controls.clear()
         welcome_message = "🤖 ¡Hola! Soy tu asistente especializado en hipertensión arterial.\n\n"
         welcome_message += "Puedes hacerme cualquier pregunta sobre:\n"
@@ -765,6 +767,7 @@ class HypertensionApp:
         """Iniciar diagnóstico con árbol de decisión"""
         self.current_decision_node = 0
         self.patient_responses = {}
+        self.final_diagnosis = None  # Reiniciar diagnóstico final
         self.chat_messages.controls.clear()
         
         intro_message = "🔍 **Diagnóstico Guiado de Hipertensión Arterial**\n\n"
@@ -833,6 +836,9 @@ class HypertensionApp:
         final_message += "Para un diagnóstico definitivo y tratamiento adecuado, siempre consulte con un médico profesional.\n"
         final_message += "🎯" * 20
         
+        # Guardar el diagnóstico final
+        self.final_diagnosis = final_message
+
         self.add_ai_message(final_message)
         
         # Mostrar botón para guardar diagnóstico
@@ -962,6 +968,7 @@ class HypertensionApp:
             
             # Agregar disclaimer médico
             ai_response += "\n\n⚠️ **Importante**: Esta información es solo para fines educativos. Siempre consulte con un médico profesional para diagnóstico y tratamiento específicos."
+            self.final_diagnosis = ai_response
             
             self.add_ai_message(ai_response)
             
@@ -1061,6 +1068,7 @@ Puedo ayudarte con información sobre:
 
 **¿Sobre qué tema específico te gustaría saber más?**
 """
+        self.final_diagnosis = response
 
         self.add_ai_message(response)
         self.save_diagnosis_btn.visible = True
@@ -1083,6 +1091,7 @@ Puedo ayudarte con información sobre:
                 "diagnosis": {
                     "timestamp": datetime.now().isoformat(),
                     "messages": messages,
+                    "diagnostico": self.final_diagnosis if self.final_diagnosis else "No se completó el diagnóstico",
                     "session_id": f"session_{self.current_patient_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
                 }
             }
