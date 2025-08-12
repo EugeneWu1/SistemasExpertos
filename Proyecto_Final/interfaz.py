@@ -9,6 +9,8 @@ from dotenv import load_dotenv
 import mysql.connector
 from mysql.connector import Error
 import re
+import os
+from datetime import datetime
 
 load_dotenv()
 
@@ -34,7 +36,7 @@ def main(page: ft.Page):
 
     # Base de datos simulada de pacientes
     pacientes_db = []
-    diagnosticos_archivo = "diagnosticos.json"
+    #diagnosticos_archivo = "diagnosticos.json"
     
     # Configuración del bot de Telegram
     TELEGRAM_BOT_URL = "http://localhost:1880/telegram-message"
@@ -147,25 +149,7 @@ def main(page: ft.Page):
 
     estado = {"nodo": 0, "historial": [], "paciente_actual": None, "respuestas": []}
 
-    def cargar_diagnosticos():
-        """Carga los diagnósticos desde el archivo JSON"""
-        try:
-            with open(diagnosticos_archivo, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            return []
-        except json.JSONDecodeError:
-            return []
-
-    def guardar_diagnosticos(diagnosticos):
-        """Guarda los diagnósticos en el archivo JSON"""
-        try:
-            with open(diagnosticos_archivo, 'w', encoding='utf-8') as f:
-                json.dump(diagnosticos, f, ensure_ascii=False, indent=2)
-            return True
-        except Exception as e:
-            print(f"Error guardando diagnósticos: {e}")
-            return False
+    
 
     def conectar_bd():
         """Establece conexión con la base de datos"""
@@ -424,17 +408,17 @@ def main(page: ft.Page):
                 diagnostico_text.value = f"🎯 Diagnóstico: {diagnostico_final}"
                 
                 # Actualizar paciente
-                estado["paciente_actual"]["respuestas"] = estado["respuestas"].copy()
-                estado["paciente_actual"]["diagnostico"] = diagnostico_final
-                estado["paciente_actual"]["estado_evaluacion"] = "Completada"
-                estado["paciente_actual"]["fecha_evaluacion"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                
-                # Guardar en JSON
-                diagnosticos = cargar_diagnosticos()
-                diagnosticos.append(estado["paciente_actual"].copy())
-                if guardar_diagnosticos(diagnosticos):
-                    mostrar_notificacion("Diagnóstico guardado exitosamente", "#4CAF50")
-                
+                paciente_actual = estado["paciente_actual"]
+                paciente_actual.update({
+                    "respuestas": estado["respuestas"].copy(),
+                    "diagnostico": diagnostico_final,
+                    "estado_evaluacion": "Completada",
+                    "fecha_evaluacion": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                })
+                 
+                # Guardar reporte INDIVIDUAL
+                generar_reporte_json(paciente_actual)
+
                 # Enviar reporte si tiene contacto
                 enviar_reporte_completo(estado["paciente_actual"])
                 
@@ -667,6 +651,62 @@ def main(page: ft.Page):
         )
 
     # ================ TAB 4: PACIENTES REGISTRADOS ================
+    def generar_reporte_json(paciente):
+        try:
+            # Crear carpeta si no existe
+            os.makedirs("reportes_pacientes", exist_ok=True)
+            
+            # Nombre de archivo seguro
+            nombre_limpio = re.sub(r'[^\w\-_]', '_', paciente["nombre"].lower())
+            fecha_hora = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"reportes_pacientes/{nombre_limpio}_{fecha_hora}.json"
+            
+            # Estructura del reporte corregida
+            reporte = {
+                "metadata": {
+                    "sistema": "Sistema Experto Hipertensión",
+                    "fecha_generacion": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                },
+                "paciente": {
+                    "id": paciente["id"],
+                    "nombre": paciente["nombre"],
+                    "edad": paciente["edad"],
+                    "sexo": paciente["sexo"],
+                    "contacto": {
+                        "telefono": paciente.get("telefono", ""),
+                        "email": paciente.get("email", ""),
+                        "telegram": paciente.get("telegram", "")
+                    },
+                    "datos_clinicos": {
+                        "peso": paciente["peso"],
+                        "altura": paciente["altura"],
+                        "imc": paciente["imc"],
+                        "categoria_imc": obtener_categoria_imc(paciente["imc"])
+                    }
+                },
+                "evaluacion": {
+                    "estado": paciente["estado_evaluacion"],
+                    "fecha": paciente.get("fecha_evaluacion", ""),
+                    "diagnostico": paciente.get("diagnostico", ""),
+                    "respuestas": paciente.get("respuestas", [])
+                }
+            }
+            
+            # Guardar con manejo de errores
+            with open(filename, 'w', encoding='utf-8') as f:
+                json.dump(reporte, f, indent=2, ensure_ascii=False)
+                f.flush()  # Forzar escritura inmediata
+            
+            print(f"Archivo creado en: {os.path.abspath(filename)}")  # Debug
+            mostrar_notificacion(f"Reporte guardado: {filename}", "#4CAF50")
+            return True
+            
+        except Exception as e:
+            error_msg = f"Error al generar JSON: {str(e)}"
+            print(error_msg)
+            mostrar_notificacion(error_msg, "#F44336")
+            return False
+    
     def crear_tab_pacientes():
         tabla_pacientes = ft.DataTable(
             columns=[
@@ -680,6 +720,16 @@ def main(page: ft.Page):
             ],
             rows=[]
         )
+
+        def enviar_reporte_manual(paciente):
+            if paciente["estado_evaluacion"] != "Completada":
+                mostrar_notificacion("El paciente no ha completado la evaluación", "#FF9800")
+                return
+            
+            # Primero generar el JSON local
+            if generar_reporte_json(paciente):
+                # Luego enviar el reporte completo (si es necesario)
+                enviar_reporte_completo(paciente)
 
         def actualizar_tabla_pacientes():
             tabla_pacientes.rows.clear()
@@ -707,6 +757,11 @@ def main(page: ft.Page):
                                         ft.Icons.SEND,
                                         tooltip="Enviar reporte",
                                         on_click=lambda e, p=paciente: enviar_reporte_manual(p)
+                                    ),
+                                    ft.IconButton(
+                                        ft.Icons.DOWNLOAD,
+                                        tooltip="Generar Reporte",
+                                        on_click=lambda e, p=paciente: generar_reporte_json(p)
                                     )
                                 ])
                             ),
@@ -763,20 +818,50 @@ def main(page: ft.Page):
 
         def exportar_diagnosticos(_):
             try:
-                diagnosticos = cargar_diagnosticos()
+                # Verificar si existe la carpeta de reportes
+                if not os.path.exists("reportes_pacientes"):
+                    mostrar_notificacion("No hay reportes para exportar", "#FF9800")
+                    return False
+                
+                # Obtener todos los archivos JSON de la carpeta
+                archivos_reportes = [f for f in os.listdir("reportes_pacientes") if f.endswith('.json')]
+                
+                if not archivos_reportes:
+                    mostrar_notificacion("No se encontraron reportes para exportar", "#FF9800")
+                    return False
+                
+                # Leer todos los reportes individuales
+                todos_pacientes = []
+                for archivo in archivos_reportes:
+                    try:
+                        with open(f"reportes_pacientes/{archivo}", 'r', encoding='utf-8') as f:
+                            datos = json.load(f)
+                            todos_pacientes.append(datos)
+                    except Exception as e:
+                        print(f"Error leyendo archivo {archivo}: {str(e)}")
+                        continue
+                
+                if not todos_pacientes:
+                    mostrar_notificacion("No se pudieron leer los reportes", "#FF9800")
+                    return False
+                
+                # Crear archivo consolidado
                 export_data = {
                     "fecha_exportacion": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "total_pacientes": len(diagnosticos),
-                    "pacientes": diagnosticos
+                    "total_pacientes": len(todos_pacientes),
+                    "pacientes": todos_pacientes
                 }
                 
-                filename = f"diagnosticos_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+                filename = f"exportacion_completa_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
                 with open(filename, 'w', encoding='utf-8') as f:
                     json.dump(export_data, f, ensure_ascii=False, indent=2)
                 
-                mostrar_notificacion(f"Diagnósticos exportados a {filename}", "#4CAF50")
+                mostrar_notificacion(f"✅ Exportación completa guardada como {filename}", "#4CAF50")
+                return True
+            
             except Exception as e:
-                mostrar_notificacion(f"Error al exportar: {str(e)}", "#F44336")
+                mostrar_notificacion(f"❌ Error al exportar: {str(e)}", "#F44336")
+                return False
 
         actualizar_tabla_pacientes()
 
@@ -980,10 +1065,6 @@ Generado el: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         padding=10,
         bgcolor="#F5F5F5"
     )
-
-    # Cargar diagnósticos existentes al inicio
-    diagnosticos_existentes = cargar_diagnosticos()
-    pacientes_db.extend(diagnosticos_existentes)
 
     page.add(
         ft.Column([

@@ -1,0 +1,37 @@
+{
+  "metadata": {
+    "sistema": "Sistema Experto Hipertensión",
+    "fecha_generacion": "2025-08-12 00:44:06"
+  },
+  "paciente": {
+    "id": "57e36c38",
+    "nombre": "eugenewu",
+    "edad": 22,
+    "sexo": "M",
+    "contacto": {
+      "telefono": "12313121",
+      "email": "ewu@gmil.com",
+      "telegram": "ewu"
+    },
+    "datos_clinicos": {
+      "peso": 56.0,
+      "altura": 1.68,
+      "imc": 19.84,
+      "categoria_imc": "Peso normal"
+    }
+  },
+  "evaluacion": {
+    "estado": "Completada",
+    "fecha": "2025-08-12 00:44:06",
+    "diagnostico": "Reducir sodio y consultar nutricionista.",
+    "respuestas": [
+      "P1: Sí",
+      "P2: No",
+      "P5: No",
+      "P13: No",
+      "P29: Sí",
+      "P29: Sí",
+      "P29: No"
+    ]
+  }
+}
