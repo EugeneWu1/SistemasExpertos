@@ -42,6 +42,37 @@ def main(page: ft.Page):
     TELEGRAM_BOT_URL = "http://localhost:1880/telegram-message"
     API_KEY = os.getenv('GEMINI_API_KEY')
 
+# Lista de síntomas con opciones de respuesta
+    sintomas = [
+        {
+            "id": "cefalea",
+            "pregunta": "Dolor de cabeza",
+            "opciones": [
+                {"valor": "frecuente", "texto": "Frecuente (varias veces por semana)", "puntaje": 2},
+                {"valor": "ocasional", "texto": "Ocasional (1-2 veces por mes)", "puntaje": 1},
+                {"valor": "ausente", "texto": "No tengo", "puntaje": 0}
+            ]
+        },
+        {
+            "id": "vision",
+            "pregunta": "Problemas de visión",
+            "opciones": [
+                {"valor": "borrosa", "texto": "Visión borrosa", "puntaje": 2},
+                {"valor": "manchas", "texto": "Veo manchas", "puntaje": 3},
+                {"valor": "normal", "texto": "Visión normal", "puntaje": 0}
+            ]
+        },
+        {
+            "id": "mareos",
+            "pregunta": "Mareos o vértigos",
+            "opciones": [
+                {"valor": "frecuentes", "texto": "Frecuentes", "puntaje": 2},
+                {"valor": "leves", "texto": "Ocasionales y leves", "puntaje": 1},
+                {"valor": "ninguno", "texto": "No tengo", "puntaje": 0}
+            ]
+        }
+    ]
+
     # Árbol de decisión mejorado
     arbol = {
         0: {"pregunta": "¿El paciente tiene presión arterial elevada (≥140/90 mmHg)?",
@@ -171,6 +202,7 @@ def main(page: ft.Page):
         )
         page.snack_bar.open = True
         page.update()
+
 
     # ================ TAB 1: REGISTRO DE PACIENTES ================
     def crear_tab_registro():
@@ -415,12 +447,13 @@ def main(page: ft.Page):
                     "estado_evaluacion": "Completada",
                     "fecha_evaluacion": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 })
-                 
-                # Guardar reporte INDIVIDUAL
+                
+                # Mostrar diálogo de síntomas
+                mostrar_sintomas()
+                
+                # Después de guardar síntomas, generar reporte y enviar
                 generar_reporte_json(paciente_actual)
-
-                # Enviar reporte si tiene contacto
-                enviar_reporte_completo(estado["paciente_actual"])
+                enviar_reporte_completo(paciente_actual)
                 
                 actualizar_tabla_pacientes()
                 botones_container.visible = False
@@ -534,7 +567,63 @@ def main(page: ft.Page):
             padding=20
         )
 
-    # ================ TAB 3: CHATBOT IA ================
+    def mostrar_sintomas():
+        """Muestra un diálogo para seleccionar síntomas"""
+        sintomas_container = ft.Column(scroll=ft.ScrollMode.AUTO)
+        respuestas = {}
+
+        # Crear controles para cada síntoma
+        for sintoma in sintomas:
+            grupo = ft.RadioGroup(
+                content=ft.Column([
+                    ft.Text(sintoma["pregunta"], weight=ft.FontWeight.BOLD),
+                    *[ft.Radio(value=op["valor"], label=op["texto"]) for op in sintoma["opciones"]]
+                ]),
+                on_change=lambda e, s=sintoma["id"]: respuestas.update({s: e.control.value})
+            )
+            sintomas_container.controls.append(grupo)
+
+    def guardar_respuestas(_):
+        # Procesar respuestas
+        sintomas_seleccionados = []
+        puntaje_total = 0
+        
+        for sintoma in sintomas:
+            if sintoma["id"] in respuestas:
+                opcion_seleccionada = next(
+                    (op for op in sintoma["opciones"] if op["valor"] == respuestas[sintoma["id"]]), 
+                    None
+                )
+                if opcion_seleccionada:
+                    sintomas_seleccionados.append({
+                        "sintoma": sintoma["pregunta"],
+                        "respuesta": opcion_seleccionada["texto"],
+                        "puntaje": opcion_seleccionada["puntaje"]
+                    })
+                    puntaje_total += opcion_seleccionada["puntaje"]
+        
+        # Guardar en el paciente actual
+        if estado["paciente_actual"]:
+            estado["paciente_actual"]["sintomas"] = sintomas_seleccionados
+            estado["paciente_actual"]["puntaje_sintomas"] = puntaje_total
+            mostrar_notificacion("Síntomas guardados correctamente", "#4CAF50")
+        
+            dialog.open = False
+            page.update()
+
+            dialog = ft.AlertDialog(
+                title=ft.Text("Seleccione sus síntomas"),
+                content=sintomas_container,
+                actions=[
+                    ft.TextButton("Guardar", on_click=guardar_respuestas),
+                    ft.TextButton("Cancelar", on_click=lambda _: setattr(dialog, "open", False))
+                ]
+            )
+            
+            page.dialog = dialog
+            dialog.open = True
+            page.update() 
+        # ================ TAB 3: CHATBOT IA ================
     def crear_tab_chatbot():
         chat_container = ft.Column(
             height=400,
@@ -689,7 +778,9 @@ def main(page: ft.Page):
                     "fecha": paciente.get("fecha_evaluacion", ""),
                     "diagnostico": paciente.get("diagnostico", ""),
                     "respuestas": paciente.get("respuestas", [])
-                }
+                },
+                  "sintomas": paciente.get("sintomas", []),
+                  "puntaje_sintomas": paciente.get("puntaje_sintomas", 0)
             }
             
             # Guardar con manejo de errores
@@ -797,6 +888,21 @@ def main(page: ft.Page):
                        weight=ft.FontWeight.BOLD, color="#D32F2F"),
             ], scroll=ft.ScrollMode.AUTO, height=400)
 
+            detalle_content.controls.extend([
+                ft.Divider(),
+                ft.Text("Síntomas reportados:", weight=ft.FontWeight.BOLD),
+                ft.Column([
+                    ft.Text(f"• {s['sintoma']}: {s['respuesta']} (Puntaje: {s['puntaje']})") 
+                    for s in paciente.get('sintomas', [])
+                ], scroll=ft.ScrollMode.AUTO, height=100),
+                ft.Text(f"Puntaje total: {paciente.get('puntaje_sintomas', 0)}"),
+                
+                # Mostrar análisis de IA si existe
+                ft.Divider(),
+                ft.Text("Análisis de IA:", weight=ft.FontWeight.BOLD),
+                ft.Text(paciente.get('analisis_ia', 'No disponible'), selectable=True)
+            ])
+            
             dialog = ft.AlertDialog(
                 title=ft.Text("Información del Paciente"),
                 content=detalle_content,
@@ -914,7 +1020,37 @@ def main(page: ft.Page):
         mensaje_enviado = False
         
         reporte = generar_reporte_texto(paciente)
-        
+        if API_KEY and paciente.get("sintomas"):
+            try:
+                genai.configure(api_key=API_KEY)
+                model = genai.GenerativeModel('gemini-1.5-pro')
+                
+                contexto = f"""
+                Analiza estos síntomas de hipertensión:
+                Paciente: {paciente['nombre']}, {paciente['edad']} años
+                IMC: {paciente['imc']} ({obtener_categoria_imc(paciente['imc'])})
+                
+                Síntomas:
+                {chr(10).join(f"- {s['sintoma']}: {s['respuesta']}" for s in paciente['sintomas'])}
+                
+                Puntaje total: {paciente['puntaje_sintomas']}
+                
+                Proporciona:
+                1. Análisis conciso
+                2. Recomendaciones específicas
+                3. Nivel de urgencia (1-5)
+                """
+                
+                response = model.generate_content(contexto)
+                analisis_ia = response.text
+                reporte += f"\n\n🔍 ANÁLISIS DE IA:\n{analisis_ia}"
+                
+                # Guardar análisis en el paciente
+                paciente["analisis_ia"] = analisis_ia
+                generar_reporte_json(paciente)  # Actualizar JSON con análisis
+                
+            except Exception as e:
+                print(f"Error en análisis IA: {e}")
         # Intentar enviar por Telegram si tiene usuario
         if paciente.get("telegram"):
             if enviar_telegram(paciente, reporte):
@@ -944,6 +1080,10 @@ def main(page: ft.Page):
 • IMC: {paciente['imc']} kg/m² ({categoria_imc})
 • Fecha de evaluación: {paciente.get('fecha_evaluacion', 'N/A')}
 
+📋 SÍNTOMAS REPORTADOS:
+{chr(10).join(f"• {s['sintoma']}: {s['respuesta']} (Puntaje: {s['puntaje']})" for s in paciente.get('sintomas', []))}
+Puntaje total de síntomas: {paciente.get('puntaje_sintomas', 0)}
+
 📋 EVALUACIÓN REALIZADA:
 {chr(10).join(f"• {respuesta}" for respuesta in paciente.get('respuestas', []))}
 
@@ -962,6 +1102,7 @@ def main(page: ft.Page):
 Este reporte es generado por un sistema experto de apoyo diagnóstico.
 NO sustituye la consulta médica profesional.
 Consulte con su médico para un diagnóstico definitivo y tratamiento.
+
 
 Generado el: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 """

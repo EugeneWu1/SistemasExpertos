@@ -1,0 +1,37 @@
+{
+  "metadata": {
+    "sistema": "Sistema Experto Hipertensión",
+    "fecha_generacion": "2025-08-12 09:57:40"
+  },
+  "paciente": {
+    "id": "c2594dfe",
+    "nombre": "eugene kelly",
+    "edad": 22,
+    "sexo": "M",
+    "contacto": {
+      "telefono": "1121231",
+      "email": "eugene@gmail.com",
+      "telegram": "eugenewu"
+    },
+    "datos_clinicos": {
+      "peso": 51.0,
+      "altura": 1.69,
+      "imc": 17.86,
+      "categoria_imc": "Bajo peso"
+    }
+  },
+  "evaluacion": {
+    "estado": "Completada",
+    "fecha": "2025-08-12 09:57:40",
+    "diagnostico": "Mantener rutina de ejercicio cardiovascular.",
+    "respuestas": [
+      "P1: Sí",
+      "P2: Sí",
+      "P4: No",
+      "P11: Sí",
+      "P24: Sí"
+    ]
+  },
+  "sintomas": [],
+  "puntaje_sintomas": 0
+}
