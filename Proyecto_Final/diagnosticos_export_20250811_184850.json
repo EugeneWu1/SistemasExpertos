@@ -1,0 +1,29 @@
+{
+  "fecha_exportacion": "2025-08-11 18:48:50",
+  "total_pacientes": 1,
+  "pacientes": [
+    {
+      "id": "5971a834",
+      "nombre": "EVELYN ANDREA SABILLON LIMAS",
+      "edad": 20,
+      "sexo": "F",
+      "telefono": "96439201",
+      "email": "easl2991@gmail.com",
+      "telegram": "eve3534",
+      "peso": 56.0,
+      "altura": 1.67,
+      "imc": 20.08,
+      "fecha_registro": "2025-08-11 18:47:53",
+      "respuestas": [
+        "P1: Sí",
+        "P2: Sí",
+        "P4: Sí",
+        "P10: Sí",
+        "P22: Sí"
+      ],
+      "diagnostico": "Mantener el programa de pérdida de peso con supervisión médica.",
+      "estado_evaluacion": "Completada",
+      "fecha_evaluacion": "2025-08-11 18:48:23"
+    }
+  ]
+}
